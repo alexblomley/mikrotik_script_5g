@@ -1,0 +1,49 @@
+:local interfaceName "YourInterfaceName"
+
+:local currentIP [/ip address get [find interface=$interfaceName] address]
+:if ($currentIP = "") do={
+    :put "Error: Interface $interfaceName does not have an IP address assigned."
+    :return
+}
+
+:put "Current IP: $currentIP"
+
+:local ipWithoutMask [:pick $currentIP 0 [:find $currentIP "/"]]
+:put "IP Without Mask: $ipWithoutMask"
+
+# Find the position of the last dot
+:local lastDotPos 0
+:for i from=0 to=([:len $ipWithoutMask] - 1) do={
+    :if ([:pick $ipWithoutMask $i] = ".") do={
+        :set lastDotPos $i
+    }
+}
+
+# Extract the last octet
+:local lastOctet [:pick $ipWithoutMask ($lastDotPos + 1) [:len $ipWithoutMask]]
+:put "Last Octet: $lastOctet"
+
+:local lastOctetInt [:tonum $lastOctet]
+:put "Last Octet Int: $lastOctetInt"
+
+:local decrementedIP ""
+
+:if ($lastOctetInt > 0) do={
+    :set lastOctetInt ($lastOctetInt - 1)
+    :set decrementedIP ([:pick $ipWithoutMask 0 ($lastDotPos + 1)] . $lastOctetInt)
+} else={
+    :set decrementedIP $ipWithoutMask
+}
+
+:put "Decremented IP: $decrementedIP"
+
+:local routeID [/ip route find comment="5G Route"]
+:if ($routeID != "") do={
+    :local existingGateway [/ip route get $routeID gateway]
+    :put "Existing Gateway: $existingGateway"
+    
+    :if ($existingGateway != $decrementedIP) do={
+        /ip route set $routeID gateway=$decrementedIP
+        :put "Updated gateway for 5G Route."
+    }
+}
